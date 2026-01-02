@@ -302,10 +302,10 @@ class VoiceRecorder {
             return `
                 <div class="recording-item bg-gray-700/50 backdrop-blur-sm border border-gray-600 rounded-2xl overflow-hidden cursor-pointer hover:bg-gray-700/70 transition-all duration-300 hover:shadow-lg active:scale-[0.99]" data-id="${recording.id}" onclick="recorder.toggleRecording(${recording.id})">
                     <div class="recording-header p-4 md:p-5">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <div class="font-semibold text-white text-base md:text-lg truncate flex-1 cursor-pointer hover:text-gray-300 transition-colors" onclick="event.stopPropagation(); recorder.editRecordingName(${recording.id})">${recording.name}</div>
+                        <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0 w-full">
+                                <div class="flex items-center justify-between mb-1">
+                                    <div class="font-semibold text-white text-base md:text-lg truncate cursor-pointer hover:text-gray-300 transition-colors" onclick="event.stopPropagation(); recorder.editRecordingName(${recording.id})">${recording.name}</div>
                                     <button class="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-600 transition-colors text-gray-400 hover:text-white" onclick="event.stopPropagation(); recorder.editRecordingName(${recording.id})" title="Edit name">
                                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -315,11 +315,11 @@ class VoiceRecorder {
                                 </div>
                                 <div class="text-sm text-gray-400">${recording.date}</div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <button class="tap-effect bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm" onclick="event.stopPropagation(); recorder.downloadRecording(${recording.id})">
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <button class="tap-effect bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm flex-1 sm:flex-none" onclick="event.stopPropagation(); recorder.downloadRecording(${recording.id})">
                                     <span>💾</span> Download
                                 </button>
-                                <button class="tap-effect bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm" onclick="event.stopPropagation(); recorder.deleteRecording(${recording.id})">
+                                <button class="tap-effect bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm flex-1 sm:flex-none" onclick="event.stopPropagation(); recorder.deleteRecording(${recording.id})">
                                     <span>🗑️</span> Delete
                                 </button>
                                 <div class="expand-icon flex items-center justify-center p-2 text-gray-400 transition-transform duration-300">
