@@ -152,6 +152,7 @@ class VoiceRecorder {
             this.speechRecognition.lang = 'en-US';
             this.speechRecognition.continuous = true;
             this.speechRecognition.interimResults = true;
+            this.speechRecognition.maxAlternatives = 1;
             
             this.speechRecognition.onresult = (event) => {
                 this.interimTranscript = '';
@@ -171,25 +172,71 @@ class VoiceRecorder {
             
             this.speechRecognition.onerror = (event) => {
                 console.error('Speech recognition error:', event.error);
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                    this.currentTranscript.push(`[Transcription error: ${event.error}]`);
-                    this.updateLiveTranscript();
+                
+                // Don't show errors for these cases
+                if (event.error === 'no-speech' || event.error === 'aborted') {
+                    return;
                 }
+                
+                // Handle network errors more gracefully
+                if (event.error === 'network') {
+                    console.warn('Speech recognition service unavailable, recording continues...');
+                    // Don't add error to transcript, just log it
+                    return;
+                }
+                
+                // Handle not-allowed errors
+                if (event.error === 'not-allowed') {
+                    console.warn('Microphone permission denied');
+                    this.currentTranscript.push('[Microphone permission denied. Check browser settings.]');
+                    this.updateLiveTranscript();
+                    return;
+                }
+                
+                // Handle service not available
+                if (event.error === 'service-not-allowed') {
+                    console.warn('Speech recognition service not available');
+                    this.currentTranscript.push('[Speech recognition service unavailable. Recording continues without transcription.]');
+                    this.updateLiveTranscript();
+                    return;
+                }
+                
+                // For other errors, show them but continue recording
+                this.currentTranscript.push(`[Transcription issue: ${event.error}]`);
+                this.updateLiveTranscript();
             };
             
             this.speechRecognition.onend = () => {
+                console.log('Speech recognition ended, isRecording:', this.isRecording);
                 if (this.isRecording) {
                     try {
                         this.speechRecognition.start();
+                        console.log('Speech recognition restarted');
                     } catch (e) {
                         console.error('Failed to restart speech recognition:', e);
+                        // Retry after delay
+                        setTimeout(() => {
+                            if (this.isRecording) {
+                                try {
+                                    this.speechRecognition.start();
+                                } catch (retryError) {
+                                    console.error('Retry failed:', retryError);
+                                }
+                            }
+                        }, 1000);
                     }
                 }
             };
             
+            this.speechRecognition.onstart = () => {
+                console.log('Speech recognition started');
+            };
+            
             this.speechRecognition.start();
+            console.log('Speech recognition initialized');
         } catch (error) {
             console.error('Failed to start speech recognition:', error);
+            console.warn('Recording will continue without transcription');
         }
     }
 
