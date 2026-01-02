@@ -1,0 +1,24 @@
+# Logs
+server.log
+*.log
+
+# Backup files
+*.backup
+*.bak
+
+# Node modules (if using npm)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local

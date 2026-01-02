@@ -1,0 +1,22 @@
+{
+  "name": "voicevault",
+  "version": "1.0.0",
+  "description": "A modern voice recorder with real-time transcription",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "serve": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "voice",
+    "recorder",
+    "transcription",
+    "speech",
+    "audio"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
