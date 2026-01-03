@@ -7,6 +7,9 @@ class VoiceRecorder {
         this.currentTranscript = [];
         this.interimTranscript = '';
         this.speechRecognition = null;
+        this.isMobile = this.detectMobile();
+        this.browserInfo = this.getBrowserInfo();
+        this.speechRecognitionSupported = this.checkSpeechRecognitionSupport();
         
         this.recordBtn = document.getElementById('recordBtn');
         this.stopBtn = document.getElementById('stopBtn');
@@ -20,11 +23,60 @@ class VoiceRecorder {
         this.init();
     }
 
+    detectMobile() {
+        return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               /Android/i.test(navigator.userAgent) && window.innerWidth <= 768;
+    }
+
+    getBrowserInfo() {
+        const userAgent = navigator.userAgent;
+        let browser = 'unknown';
+        let version = 'unknown';
+        
+        if (userAgent.indexOf('Chrome') > -1) {
+            browser = 'Chrome';
+        } else if (userAgent.indexOf('Safari') > -1) {
+            browser = 'Safari';
+        } else if (userAgent.indexOf('Firefox') > -1) {
+            browser = 'Firefox';
+        } else if (userAgent.indexOf('MSIE') > -1 || userAgent.indexOf('Trident/') > -1) {
+            browser = 'IE';
+        }
+        
+        console.log('Browser Info:', { browser, userAgent, isMobile: this.isMobile });
+        return { browser, isMobile: this.isMobile };
+    }
+
+    checkSpeechRecognitionSupport() {
+        return ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
+    }
+
     init() {
         this.showSplashScreen();
         this.recordBtn.addEventListener('click', () => this.startRecording());
         this.stopBtn.addEventListener('click', () => this.stopRecording());
         this.renderRecordings();
+        
+        if (!this.speechRecognitionSupported) {
+            console.warn('Speech Recognition not supported in this browser');
+            this.showTranscriptionWarning();
+        }
+    }
+
+    showTranscriptionWarning() {
+        const warningMsg = document.createElement('div');
+        warningMsg.className = 'bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-xl px-5 py-4 mb-4 text-center';
+        warningMsg.innerHTML = `
+            <p class="font-semibold mb-2">⚠️ Speech Recognition Not Available</p>
+            <p class="text-sm mb-2">Your browser (${this.browserInfo.browser}) doesn't support speech recognition. Audio recording will still work, but transcription requires a supported browser.</p>
+            <p class="text-sm mb-2"><strong>Recommended browsers:</strong> Chrome, Edge</p>
+            <p class="text-sm"><a href="https://caniuse.com/speech-recognition-api" target="_blank" class="underline hover:text-yellow-600">Learn more about browser support</a></p>
+        `;
+        
+        const infoNote = document.querySelector('.info-note');
+        if (infoNote) {
+            infoNote.insertAdjacentElement('afterend', warningMsg);
+        }
     }
 
     showSplashScreen() {
@@ -35,7 +87,16 @@ class VoiceRecorder {
 
     async startRecording() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Request microphone access with specific mobile considerations
+            const constraints = {
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            };
+            
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             
             this.mediaRecorder = new MediaRecorder(stream);
             this.audioChunks = [];
@@ -57,7 +118,21 @@ class VoiceRecorder {
             
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            alert('Could not access microphone. Please allow microphone permissions.');
+            
+            // Mobile-specific error handling
+            let errorMessage = 'Could not access microphone. Please allow microphone permissions.';
+            
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                errorMessage = this.isMobile 
+                    ? 'Microphone access denied. On mobile: Go to Settings > Privacy > Microphone and enable it.'
+                    : 'Could not access microphone. Please allow microphone permissions in your browser settings.';
+            } else if (error.name === 'NotFoundError') {
+                errorMessage = 'No microphone found. Please ensure your device has a microphone and it is connected.';
+            } else if (error.name === 'NotReadableError') {
+                errorMessage = 'Microphone is being used by another application. Please close other apps and try again.';
+            }
+            
+            alert(errorMessage);
         }
     }
 
@@ -140,8 +215,8 @@ class VoiceRecorder {
     }
 
     startSpeechRecognition() {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            console.log('Web Speech API not supported, transcription disabled');
+        if (!this.speechRecognitionSupported) {
+            console.log('Web Speech API not supported in this browser, transcription disabled');
             return;
         }
 
@@ -149,8 +224,17 @@ class VoiceRecorder {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             this.speechRecognition = new SpeechRecognition();
             
+            // Mobile-specific configuration
             this.speechRecognition.lang = 'en-US';
-            this.speechRecognition.continuous = true;
+            
+            // Safari/iOS doesn't support continuous speech recognition well
+            if (this.browserInfo.browser === 'Safari' && this.isMobile) {
+                this.speechRecognition.continuous = false;
+                console.log('Safari mobile detected: disabling continuous mode for better compatibility');
+            } else {
+                this.speechRecognition.continuous = true;
+            }
+            
             this.speechRecognition.interimResults = true;
             this.speechRecognition.maxAlternatives = 1;
             
@@ -178,17 +262,20 @@ class VoiceRecorder {
                     return;
                 }
                 
-                // Handle network errors more gracefully
+                // Mobile-specific error handling
                 if (event.error === 'network') {
                     console.warn('Speech recognition service unavailable, recording continues...');
-                    // Don't add error to transcript, just log it
+                    this.liveTranscriptText.innerHTML += '<br><span class="text-xs text-gray-400">⚠️ Network issue on mobile. Transcription paused.</span>';
                     return;
                 }
                 
-                // Handle not-allowed errors
                 if (event.error === 'not-allowed') {
                     console.warn('Microphone permission denied');
-                    this.currentTranscript.push('[Microphone permission denied. Check browser settings.]');
+                    if (this.isMobile) {
+                        this.currentTranscript.push('[⚠️ Mobile: Check Settings > Privacy > Microphone]');
+                    } else {
+                        this.currentTranscript.push('[⚠️ Microphone permission denied. Check browser settings.]');
+                    }
                     this.updateLiveTranscript();
                     return;
                 }
@@ -196,9 +283,17 @@ class VoiceRecorder {
                 // Handle service not available
                 if (event.error === 'service-not-allowed') {
                     console.warn('Speech recognition service not available');
-                    this.currentTranscript.push('[Speech recognition service unavailable. Recording continues without transcription.]');
+                    this.currentTranscript.push('[Speech recognition service unavailable on this device.]');
                     this.updateLiveTranscript();
                     return;
+                }
+                
+                // Safari/iOS specific errors
+                if (this.browserInfo.browser === 'Safari' && this.isMobile) {
+                    if (event.error === 'no-speech') {
+                        console.warn('Safari mobile no-speech is normal, continuing');
+                        return;
+                    }
                 }
                 
                 // For other errors, show them but continue recording
@@ -223,20 +318,26 @@ class VoiceRecorder {
                                     console.error('Retry failed:', retryError);
                                 }
                             }
-                        }, 1000);
+                        }, 1500);
                     }
                 }
             };
             
             this.speechRecognition.onstart = () => {
                 console.log('Speech recognition started');
+                this.liveTranscriptText.innerHTML = '';
             };
             
             this.speechRecognition.start();
-            console.log('Speech recognition initialized');
+            console.log('Speech recognition initialized', {
+                browser: this.browserInfo.browser,
+                isMobile: this.isMobile,
+                mode: this.speechRecognition.continuous ? 'continuous' : 'single-shot'
+            });
         } catch (error) {
             console.error('Failed to start speech recognition:', error);
             console.warn('Recording will continue without transcription');
+            this.liveTranscriptText.innerHTML = '<span class="text-yellow-300 text-sm">⚠️ Speech recognition not available on this browser. Recording continues.</span>';
         }
     }
 
