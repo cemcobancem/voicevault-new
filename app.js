@@ -7,6 +7,7 @@ class VoiceRecorder {
         this.currentTranscript = [];
         this.interimTranscript = '';
         this.speechRecognition = null;
+        this.searchQuery = '';
         this.isMobile = this.detectMobile();
         this.browserInfo = this.getBrowserInfo();
         this.speechRecognitionSupported = this.checkSpeechRecognitionSupport();
@@ -19,6 +20,9 @@ class VoiceRecorder {
         this.splashScreen = document.getElementById('splashScreen');
         this.liveTranscript = document.getElementById('liveTranscript');
         this.liveTranscriptText = document.getElementById('liveTranscriptText');
+        this.searchInput = document.getElementById('searchInput');
+        this.clearSearchBtn = document.getElementById('clearSearchBtn');
+        this.searchResults = document.getElementById('searchResults');
         
         this.init();
     }
@@ -55,6 +59,7 @@ class VoiceRecorder {
         this.showSplashScreen();
         this.recordBtn.addEventListener('click', () => this.startRecording());
         this.stopBtn.addEventListener('click', () => this.stopRecording());
+        this.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
         this.renderRecordings();
         
         if (!this.speechRecognitionSupported) {
@@ -382,21 +387,56 @@ class VoiceRecorder {
         this.recordingCount.textContent = this.recordings.length;
     }
 
-    renderRecordings() {
-        this.updateRecordingCount();
-        console.log('Rendering recordings:', this.recordings.length);
+    handleSearch(query) {
+        this.searchQuery = query.toLowerCase().trim();
+        this.renderRecordings();
+    }
+
+    clearSearch() {
+        this.searchQuery = '';
+        this.searchInput.value = '';
+        this.renderRecordings();
+    }
+
+    filterRecordings() {
+        if (!this.searchQuery) {
+            return this.recordings;
+        }
         
-        if (this.recordings.length === 0) {
+        return this.recordings.filter(recording => {
+            const searchLower = this.searchQuery.toLowerCase();
+            const nameMatch = recording.name.toLowerCase().includes(searchLower);
+            const dateMatch = recording.date.toLowerCase().includes(searchLower);
+            const transcriptMatch = recording.transcript && recording.transcript.toLowerCase().includes(searchLower);
+            
+            return nameMatch || dateMatch || transcriptMatch;
+        });
+    }
+
+    renderRecordings() {
+        const filteredRecordings = this.filterRecordings();
+        this.updateRecordingCount();
+        console.log('Rendering recordings:', this.recordings.length, 'Search query:', this.searchQuery, 'Filtered:', filteredRecordings.length);
+        
+        if (filteredRecordings.length === 0) {
             this.recordingsList.innerHTML = `
                 <div class="text-center py-16 px-6">
                     <div class="text-6xl mb-4">🎙️</div>
-                    <p class="text-gray-400 text-lg">No recordings yet. Start recording!</p>
+                    <p class="text-gray-400 text-lg">${this.searchQuery ? `No recordings match "${this.searchQuery}"` : 'No recordings yet. Start recording!'}</p>
                 </div>
             `;
+            this.clearSearchBtn.classList.add('hidden');
+            this.updateSearchResults(filteredRecordings.length, this.searchQuery);
             return;
         }
         
-        this.recordingsList.innerHTML = this.recordings.map(recording => {
+        if (filteredRecordings.length > 0) {
+            this.clearSearchBtn.classList.remove('hidden');
+        }
+        
+        this.updateSearchResults(filteredRecordings.length, this.searchQuery);
+        
+        this.recordingsList.innerHTML = filteredRecordings.map(recording => {
             const transcriptClass = recording.transcript ? '' : 'hidden';
             const transcriptContent = recording.transcript || 'No transcript available. Transcription happens automatically during recording.';
             
